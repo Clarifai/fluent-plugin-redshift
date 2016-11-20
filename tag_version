@@ -1,2 +1,13 @@
 #! /bin/bash
-git tag -a $(cat VERSION)
+
+tag_name="v$(cat VERSION)"
+
+git tag -a $tag_name
+return_val=$?
+
+if [ $return_val -eq 0 ]; then
+    echo "tagged current commit as ${tag_name}"
+    echo "don't forget to git push --tags"
+else
+    exit $?
+fi
