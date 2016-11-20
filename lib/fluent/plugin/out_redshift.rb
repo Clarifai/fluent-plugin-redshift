@@ -182,6 +182,9 @@ DESC
     sql = @copy_sql_template % s3_uri
     $log.debug format_log("start copying. s3_uri=#{s3_uri}")
 
+    # $log.info sql
+    # $log.info "not actually copying!!"
+
     begin
       @redshift_connection.exec(sql)
       $log.info format_log("completed copying to redshift. s3_uri=#{s3_uri}")
@@ -205,7 +208,7 @@ DESC
 
   def build_redshift_copy_sql_template
     copy_columns = if @redshift_copy_columns
-                     "(#{@redshift_copy_columns.join(",")})"
+                     "(\"#{@redshift_copy_columns.join("\",\"")}\")"
                    else
                      ''
                    end
@@ -266,6 +269,7 @@ DESC
         next unless record
         begin
           hash = json? ? json_to_hash(record[@record_log_tag]) : record[@record_log_tag]
+          modify_hash_record(hash)
           tsv_text = hash_to_table_text(redshift_table_columns, hash, delimiter)
           gzw.write(tsv_text) if tsv_text and not tsv_text.empty?
         rescue => e
@@ -301,11 +305,34 @@ DESC
     nil
   end
 
+  # Josh Hack:
+  # =============================================
+  def modify_hash_record(record)
+    rename_entry(record, "@timestamp", "timestamp")
+    rename_entry(record, "url", "full_url")
+
+    # fix timestamp format
+    record["timestamp"] = record["timestamp"].chomp('Z')
+  end
+
+  def rename_entry(record, old_key, new_key)
+    if record.key?(old_key)
+      record[new_key] = record[old_key]
+    end
+  end
+  # =============================================
+
   def hash_to_table_text(redshift_table_columns, hash, delimiter)
     return "" unless hash
 
     # extract values from hash
     val_list = redshift_table_columns.collect {|cn| hash[cn]}
+
+    # puts "collected: ============="
+    # redshift_table_columns.each do |cn|
+    #   puts cn + ': ' + hash[cn].to_s
+    # end
+    # puts "collected: ============="
 
     if val_list.all?{|v| v.nil?}
       $log.warn format_log("no data match for table columns on redshift. data=#{hash} table_columns=#{redshift_table_columns}")
