@@ -18,7 +18,7 @@ class RedshiftOutput < BufferedOutput
     require 'pg'
     require 'json'
     require 'csv'
-    require 'SecureRandom'
+    require 'securerandom'
   end
 
   config_param :record_log_tag, :string, :default => 'log'
