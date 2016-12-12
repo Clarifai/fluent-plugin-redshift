@@ -370,7 +370,7 @@ DESC
     else
       @last_file_index = 1
     end
-    "#{path_prefix}#{timestamp_key}_#{last_file_index}_#{file_suffix}"
+    "#{path_prefix}#{timestamp_key}_#{@last_file_index}_#{@file_suffix}"
   end
 
   def check_credentials
