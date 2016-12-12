@@ -18,6 +18,7 @@ class RedshiftOutput < BufferedOutput
     require 'pg'
     require 'json'
     require 'csv'
+    require 'SecureRandom'
   end
 
   config_param :record_log_tag, :string, :default => 'log'
@@ -99,6 +100,7 @@ DESC
     end
     @path = "#{@path}/" unless @path.end_with?('/') # append last slash
     @path = @path[1..-1] if @path.start_with?('/')  # remove head slash
+    @file_suffix = SecureRandom.uuid
     @utc = true if conf['utc']
     @db_conf = {
       host:@redshift_host,
@@ -167,7 +169,7 @@ DESC
     end
 
     # create a file path with time format
-    s3path = create_s3path(@bucket, @path)
+    s3path = create_s3path(@path)
 
     # upload gz to s3
     @bucket.objects[s3path].write(Pathname.new(tmp.path),
@@ -361,15 +363,14 @@ DESC
     val.gsub(/\\|\t|\n/, {"\\" => "\\\\", "\t" => "\\\t", "\n" => "\\\n"})  # escape tab, newline and backslash
   end
 
-  def create_s3path(bucket, path)
+  def create_s3path(path_prefix)
     timestamp_key = (@utc) ? Time.now.utc.strftime(@timestamp_key_format) : Time.now.strftime(@timestamp_key_format)
-    i = 0
-    begin
-      suffix = "_#{'%02d' % i}"
-      s3path = "#{path}#{timestamp_key}#{suffix}.gz"
-      i += 1
-    end while bucket.objects[s3path].exists?
-    s3path
+    if @last_timestamp_key.eql?(timestamp_key)
+      @last_file_index += 1
+    else
+      @last_file_index = 1
+    end
+    "#{path_prefix}#{timestamp_key}_#{last_file_index}_#{file_suffix}"
   end
 
   def check_credentials
